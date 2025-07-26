@@ -1,0 +1,2945 @@
+"use client"
+import { useState, useEffect, useRef, useCallback } from "react"
+import {
+  Home,
+  Thermometer,
+  Shield,
+  Sun,
+  Moon,
+  Zap,
+  X,
+  Bot,
+  Bell,
+  BellRing,
+  Camera,
+  Video,
+  VideoOff,
+  Star,
+  MessageSquare,
+  CloudRain,
+  CloudSnow,
+  CloudSun,
+  Wind,
+  Droplets,
+  AlertTriangle,
+  CheckCircle2,
+  Info,
+  XCircle,
+  Sunrise,
+  Sunset,
+  RotateCcw,
+  MapPin,
+  Eye,
+  EyeOff,
+  Settings,
+  Navigation,
+  Volume2,
+  VolumeX,
+  RotateCw,
+  Crosshair,
+  Plus,
+  Check,
+  Trash2,
+  Edit3,
+  Quote,
+  RefreshCw,
+  Heart,
+  Calendar,
+  Clock,
+  ChevronDown,
+  ChevronUp,
+} from "lucide-react"
+
+// Weather API configuration - Using OpenWeatherMap
+const WEATHER_API_KEY = "your_api_key_here" // Replace with actual API key
+const WEATHER_API_URL = "https://api.openweathermap.org/data/2.5"
+
+// Enhanced themes with morning/night modes
+const customThemes = {
+  default: {
+    name: "Default",
+    colors: {
+      primary: "blue",
+      secondary: "slate",
+      accent: "green",
+      background: "bg-slate-50 dark:bg-slate-900",
+      card: "bg-white dark:bg-slate-800",
+      text: "text-slate-800 dark:text-white",
+    },
+  },
+  morning: {
+    name: "Morning Mode",
+    colors: {
+      primary: "amber",
+      secondary: "orange",
+      accent: "yellow",
+      background: "bg-gradient-to-br from-amber-50 to-orange-100 dark:from-amber-950 dark:to-orange-950",
+      card: "bg-white/80 dark:bg-amber-900/50",
+      text: "text-amber-900 dark:text-amber-100",
+    },
+  },
+  night: {
+    name: "Night Mode",
+    colors: {
+      primary: "indigo",
+      secondary: "purple",
+      accent: "blue",
+      background: "bg-gradient-to-br from-indigo-950 to-purple-950",
+      card: "bg-indigo-900/50 dark:bg-indigo-900/30",
+      text: "text-indigo-100 dark:text-indigo-50",
+    },
+  },
+}
+
+// Notification types
+const NOTIFICATION_TYPES = {
+  INFO: "info",
+  SUCCESS: "success",
+  WARNING: "warning",
+  ERROR: "error",
+  SECURITY: "security",
+  ENERGY: "energy",
+  WEATHER: "weather",
+}
+
+// Notification settings
+const NOTIFICATION_SETTINGS = {
+  security: { enabled: true, priority: "high", sound: true },
+  energy: { enabled: true, priority: "normal", sound: false },
+  weather: { enabled: true, priority: "low", sound: false },
+  system: { enabled: true, priority: "normal", sound: true },
+  reminders: { enabled: true, priority: "normal", sound: true },
+}
+
+// Enhanced camera configuration with video calling features
+const cameraConfig = [
+  { id: 1, name: "Front Door", location: "Entrance", type: "security", facing: "environment" },
+  { id: 2, name: "Living Room", location: "Main Floor", type: "indoor", facing: "user" },
+  { id: 3, name: "Backyard", location: "Garden", type: "outdoor", facing: "environment" },
+  { id: 4, name: "Personal Camera", location: "Your Device", type: "personal", facing: "user" },
+]
+
+// Mood options
+const MOOD_OPTIONS = [
+  { emoji: "😄", label: "Excellent", value: 5, color: "text-green-500" },
+  { emoji: "😊", label: "Good", value: 4, color: "text-blue-500" },
+  { emoji: "😐", label: "Okay", value: 3, color: "text-yellow-500" },
+  { emoji: "😔", label: "Not Great", value: 2, color: "text-orange-500" },
+  { emoji: "😢", label: "Terrible", value: 1, color: "text-red-500" },
+]
+
+// Inspirational quotes
+const QUOTES = [
+  {
+    text: "The future belongs to those who believe in the beauty of their dreams.",
+    author: "Eleanor Roosevelt",
+  },
+  {
+    text: "It is during our darkest moments that we must focus to see the light.",
+    author: "Aristotle",
+  },
+  {
+    text: "The only way to do great work is to love what you do.",
+    author: "Steve Jobs",
+  },
+  {
+    text: "Life is what happens to you while you're busy making other plans.",
+    author: "John Lennon",
+  },
+  {
+    text: "The way to get started is to quit talking and begin doing.",
+    author: "Walt Disney",
+  },
+  {
+    text: "Your limitation—it's only your imagination.",
+    author: "Unknown",
+  },
+  {
+    text: "Push yourself, because no one else is going to do it for you.",
+    author: "Unknown",
+  },
+  {
+    text: "Great things never come from comfort zones.",
+    author: "Unknown",
+  },
+  {
+    text: "Dream it. Wish it. Do it.",
+    author: "Unknown",
+  },
+  {
+    text: "Success doesn't just find you. You have to go out and get it.",
+    author: "Unknown",
+  },
+]
+
+export default function EnhancedSmartHomeDashboard() {
+  // Core state
+  const [currentTheme, setCurrentTheme] = useState("default")
+  const [darkMode, setDarkMode] = useState(false)
+  const [currentMode, setCurrentMode] = useState("default")
+
+  // Service Worker and Notifications state
+  const [swRegistration, setSwRegistration] = useState(null)
+  const [notificationPermission, setNotificationPermission] = useState("default")
+  const [pushSubscription, setPushSubscription] = useState(null)
+  const [notificationSettings, setNotificationSettings] = useState(NOTIFICATION_SETTINGS)
+  const [showNotificationSettings, setShowNotificationSettings] = useState(false)
+
+  // Enhanced location and weather state
+  const [location, setLocation] = useState(null)
+  const [locationPermission, setLocationPermission] = useState("prompt")
+  const [weatherData, setWeatherData] = useState(null)
+  const [weatherLoading, setWeatherLoading] = useState(false)
+  const [locationError, setLocationError] = useState(null)
+  const [locationAccuracy, setLocationAccuracy] = useState(null)
+  const [showLocationModal, setShowLocationModal] = useState(false)
+
+  // Enhanced camera state with video calling features
+  const [cameraStreams, setCameraStreams] = useState({})
+  const [cameraPermissions, setCameraPermissions] = useState("prompt")
+  const [activeCameras, setActiveCameras] = useState(new Set())
+  const [showCameraModal, setShowCameraModal] = useState(false)
+  const [fullscreenCamera, setFullscreenCamera] = useState(null)
+  const [cameraSettings, setCameraSettings] = useState({})
+  const [audioEnabled, setAudioEnabled] = useState(false)
+  const [videoQuality, setVideoQuality] = useState("hd")
+
+  // Notifications and UI state
+  const [notifications, setNotifications] = useState([])
+  const [showNotifications, setShowNotifications] = useState(false)
+  const [showFeedback, setShowFeedback] = useState(false)
+  const [feedbackData, setFeedbackData] = useState({ rating: 0, message: "", category: "general" })
+  const [chatMessages, setChatMessages] = useState([
+    {
+      type: "bot",
+      message:
+        "Hello! I can help you with location services, weather updates, camera management, mood tracking, and task management. Enable permissions for the best experience!",
+    },
+  ])
+
+  // NEW FEATURES STATE
+  // Mood Tracker State
+  const [currentMood, setCurrentMood] = useState(null)
+  const [moodHistory, setMoodHistory] = useState([])
+  const [showMoodHistory, setShowMoodHistory] = useState(false)
+  const [moodNote, setMoodNote] = useState("")
+
+  // To-Do List State
+  const [todos, setTodos] = useState([
+    { id: 1, text: "Check smart home sensors", completed: false, priority: "high", createdAt: new Date() },
+    { id: 2, text: "Review security cameras", completed: true, priority: "medium", createdAt: new Date() },
+  ])
+  const [newTodo, setNewTodo] = useState("")
+  const [todoFilter, setTodoFilter] = useState("all") // all, active, completed
+  const [editingTodo, setEditingTodo] = useState(null)
+
+  // Quotations State
+  const [currentQuote, setCurrentQuote] = useState(QUOTES[0])
+  const [favoriteQuotes, setFavoriteQuotes] = useState([])
+
+  // Add after existing state declarations (around line 150)
+  const [autoSlideQuotes, setAutoSlideQuotes] = useState(true)
+  const [quoteSlideInterval, setQuoteSlideInterval] = useState(10000) // 10 seconds
+  const [showChatbotSidebar, setShowChatbotSidebar] = useState(false)
+
+  // Real-time data with thresholds for notifications
+  const [realTimeData, setRealTimeData] = useState({
+    energyUsage: 1.4,
+    temperature: 22,
+    humidity: 65,
+    securityStatus: "Armed",
+    devicesOnline: 12,
+    costToday: 45.6,
+    solarGeneration: 1.8,
+    waterUsage: 150,
+    airQuality: 85,
+    internetSpeed: 75,
+  })
+  const [previousData, setPreviousData] = useState(realTimeData)
+
+  const theme = customThemes[currentTheme]
+  const videoRefs = useRef({})
+
+  // Notification system
+  const addNotification = useCallback((message, type = NOTIFICATION_TYPES.INFO, duration = 5000) => {
+    const id = Date.now()
+    const notification = { id, message, type, timestamp: new Date() }
+    setNotifications((prev) => [...prev, notification])
+
+    if (duration > 0) {
+      setTimeout(() => {
+        setNotifications((prev) => prev.filter((n) => n.id !== id))
+      }, duration)
+    }
+  }, [])
+
+  // Subscribe to Push Notifications with environment check
+  const subscribeToPushNotifications = useCallback(async () => {
+    if (!swRegistration) {
+      addNotification("Using browser notifications (no service worker)", NOTIFICATION_TYPES.INFO)
+      return
+    }
+
+    try {
+      // Check if push messaging is supported
+      if (!("PushManager" in window)) {
+        addNotification("Push messaging not supported - using browser notifications", NOTIFICATION_TYPES.INFO)
+        return
+      }
+
+      // Only attempt push subscription in production environments
+      if (window.location.protocol !== "https:" || window.location.hostname.includes("preview")) {
+        addNotification("Push notifications require HTTPS production environment", NOTIFICATION_TYPES.INFO)
+        return
+      }
+
+      // Generate VAPID keys for production use (demo key for now)
+      const vapidPublicKey = "BEl62iUYgUivxIkv69yViEuiBIa40HI80NM9f8HnKJuOmqmHzdSSW9Oh6S8ks4dMcUqFOdFnYoA-cNg6RYhzQAU"
+
+      const subscription = await swRegistration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
+      })
+
+      setPushSubscription(subscription)
+      addNotification("Push notifications enabled!", NOTIFICATION_TYPES.SUCCESS)
+    } catch (error) {
+      console.error("Push subscription failed:", error)
+      addNotification("Using browser notifications (push failed)", NOTIFICATION_TYPES.INFO)
+    }
+  }, [swRegistration, addNotification])
+
+  // Request Notification Permission
+  const requestNotificationPermission = useCallback(async () => {
+    if (!("Notification" in window)) {
+      addNotification("Notifications not supported", NOTIFICATION_TYPES.WARNING)
+      return false
+    }
+
+    let permission = Notification.permission
+
+    if (permission === "default") {
+      permission = await Notification.requestPermission()
+    }
+
+    setNotificationPermission(permission)
+
+    if (permission === "granted") {
+      addNotification("Notification permission granted!", NOTIFICATION_TYPES.SUCCESS)
+      // Register for push notifications if service worker is available
+      if (swRegistration) {
+        await subscribeToPushNotifications()
+      }
+      return true
+    } else {
+      addNotification("Notification permission denied", NOTIFICATION_TYPES.ERROR)
+      return false
+    }
+  }, [swRegistration, addNotification, subscribeToPushNotifications])
+
+  // Service Worker Registration with environment-aware fallback
+  const registerServiceWorker = useCallback(async () => {
+    // Skip service worker registration in preview/development environments
+    // Focus on browser notifications which work everywhere
+    addNotification("Using browser notifications (Service Worker skipped in preview)", NOTIFICATION_TYPES.INFO)
+
+    // Check if we're in a supported environment for service workers
+    if (
+      "serviceWorker" in navigator &&
+      window.location.protocol === "https:" &&
+      !window.location.hostname.includes("preview")
+    ) {
+      try {
+        // Only attempt service worker registration in production HTTPS environments
+        const registration = await navigator.serviceWorker.register("/sw.js", {
+          scope: "/",
+        })
+        setSwRegistration(registration)
+        addNotification("Service Worker registered successfully!", NOTIFICATION_TYPES.SUCCESS)
+
+        // Listen for messages from service worker
+        navigator.serviceWorker.addEventListener("message", (event) => {
+          if (event.data && event.data.type === "NOTIFICATION_CLICKED") {
+            addNotification(`Notification clicked: ${event.data.title}`, NOTIFICATION_TYPES.INFO)
+          }
+        })
+
+        return registration
+      } catch (error) {
+        console.error("Service Worker registration failed:", error)
+        addNotification("Service Worker failed - using browser notifications", NOTIFICATION_TYPES.WARNING)
+        return null
+      }
+    } else {
+      // Use browser notifications as primary method
+      addNotification("Using browser notifications for this environment", NOTIFICATION_TYPES.INFO)
+      return null
+    }
+  }, [addNotification])
+
+  // Helper function to convert VAPID key
+  const urlBase64ToUint8Array = (base64String) => {
+    const padding = "=".repeat((4 - (base64String.length % 4)) % 4)
+    const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/")
+    const rawData = window.atob(base64)
+    const outputArray = new Uint8Array(rawData.length)
+    for (let i = 0; i < rawData.length; ++i) {
+      outputArray[i] = rawData.charCodeAt(i)
+    }
+    return outputArray
+  }
+
+  // Enhanced notification system with better fallbacks
+  const sendBackgroundNotification = useCallback(
+    async (title, body, options = {}) => {
+      if (notificationPermission !== "granted") {
+        // Show in-app notification instead
+        addNotification(`${title}: ${body}`, options.type || NOTIFICATION_TYPES.INFO)
+        return
+      }
+
+      const defaultOptions = {
+        icon: "/favicon.ico",
+        badge: "/favicon.ico",
+        vibrate: [200, 100, 200],
+        data: {
+          timestamp: Date.now(),
+          url: window.location.href,
+        },
+        tag: options.tag || "smart-home-notification",
+        requireInteraction: options.requireInteraction || false,
+        silent: options.silent || false,
+        ...options,
+      }
+
+      try {
+        // Always use browser Notification API for reliability
+        if ("Notification" in window && Notification.permission === "granted") {
+          const notification = new Notification(title, {
+            body,
+            ...defaultOptions,
+          })
+
+          // Handle click events
+          notification.onclick = () => {
+            window.focus()
+            notification.close()
+            // Send message to app about notification click
+            addNotification(`Opened: ${title}`, NOTIFICATION_TYPES.INFO)
+          }
+
+          // Auto-close after duration based on priority
+          const duration = options.priority === "high" ? 10000 : options.priority === "low" ? 3000 : 5000
+          setTimeout(() => {
+            notification.close()
+          }, duration)
+
+          // Also try service worker notification if available
+          if (swRegistration && swRegistration.active) {
+            try {
+              await swRegistration.showNotification(title, {
+                body,
+                ...defaultOptions,
+              })
+            } catch (swError) {
+              // Service worker notification failed, but browser notification succeeded
+              console.log("Service worker notification failed, using browser notification")
+            }
+          }
+        } else {
+          // Final fallback - show as in-app notification
+          addNotification(`${title}: ${body}`, options.type || NOTIFICATION_TYPES.INFO)
+        }
+      } catch (error) {
+        console.error("Notification failed:", error)
+        // Fallback to in-app notification
+        addNotification(`${title}: ${body}`, options.type || NOTIFICATION_TYPES.INFO)
+      }
+    },
+    [notificationPermission, swRegistration, addNotification],
+  )
+
+  // Smart notification system based on data changes
+  const checkForNotificationTriggers = useCallback(
+    (newData, oldData) => {
+      // Security alerts
+      if (newData.securityStatus !== oldData.securityStatus && newData.securityStatus === "Alert") {
+        if (notificationSettings.security.enabled) {
+          sendBackgroundNotification("🚨 Security Alert", "Motion detected! Check your cameras immediately.", {
+            tag: "security-alert",
+            requireInteraction: true,
+            priority: "high",
+          })
+        }
+      }
+
+      // Energy usage spikes
+      if (newData.energyUsage > oldData.energyUsage * 1.5 && newData.energyUsage > 3.0) {
+        if (notificationSettings.energy.enabled) {
+          sendBackgroundNotification(
+            "⚡ High Energy Usage",
+            `Energy consumption spiked to ${newData.energyUsage.toFixed(1)} kWh`,
+            {
+              tag: "energy-spike",
+              priority: "normal",
+            },
+          )
+        }
+      }
+
+      // Temperature alerts
+      if (Math.abs(newData.temperature - oldData.temperature) > 5) {
+        if (notificationSettings.system.enabled) {
+          sendBackgroundNotification(
+            "🌡️ Temperature Change",
+            `Temperature changed to ${newData.temperature.toFixed(1)}°C`,
+            {
+              tag: "temperature-change",
+              priority: "low",
+            },
+          )
+        }
+      }
+
+      // Device offline alerts
+      if (newData.devicesOnline < oldData.devicesOnline) {
+        if (notificationSettings.system.enabled) {
+          sendBackgroundNotification(
+            "📱 Device Offline",
+            `${oldData.devicesOnline - newData.devicesOnline} device(s) went offline`,
+            {
+              tag: "device-offline",
+              priority: "normal",
+            },
+          )
+        }
+      }
+
+      // Air quality warnings
+      if (newData.airQuality < 50 && oldData.airQuality >= 50) {
+        if (notificationSettings.system.enabled) {
+          sendBackgroundNotification("💨 Air Quality Alert", "Air quality has dropped to unhealthy levels", {
+            tag: "air-quality",
+            priority: "high",
+          })
+        }
+      }
+    },
+    [notificationSettings, sendBackgroundNotification],
+  )
+
+  // Schedule periodic notifications
+  const schedulePeriodicNotifications = useCallback(() => {
+    // Morning routine notification
+    const scheduleNotification = (hour, minute, title, body, tag) => {
+      const now = new Date()
+      const scheduledTime = new Date()
+      scheduledTime.setHours(hour, minute, 0, 0)
+
+      if (scheduledTime <= now) {
+        scheduledTime.setDate(scheduledTime.getDate() + 1)
+      }
+
+      const timeUntilNotification = scheduledTime.getTime() - now.getTime()
+
+      setTimeout(() => {
+        if (notificationSettings.reminders.enabled) {
+          sendBackgroundNotification(title, body, { tag, priority: "normal" })
+        }
+        // Reschedule for next day
+        setInterval(
+          () => {
+            if (notificationSettings.reminders.enabled) {
+              sendBackgroundNotification(title, body, { tag, priority: "normal" })
+            }
+          },
+          24 * 60 * 60 * 1000,
+        )
+      }, timeUntilNotification)
+    }
+
+    // Schedule daily notifications
+    scheduleNotification(7, 0, "🌅 Good Morning!", "Your smart home is ready for the day", "morning-routine")
+    scheduleNotification(22, 0, "🌙 Good Night!", "All systems secured for the night", "night-routine")
+    scheduleNotification(
+      12,
+      0,
+      "📊 Daily Report",
+      `Energy usage: ${realTimeData.energyUsage.toFixed(1)} kWh today`,
+      "daily-report",
+    )
+  }, [notificationSettings, sendBackgroundNotification, realTimeData])
+
+  // Initialize service worker and notifications
+  useEffect(() => {
+    const initializeNotifications = async () => {
+      const registration = await registerServiceWorker()
+      if (registration) {
+        setSwRegistration(registration)
+      }
+      // Check current notification permission
+      if ("Notification" in window) {
+        setNotificationPermission(Notification.permission)
+      }
+    }
+
+    initializeNotifications()
+  }, [registerServiceWorker])
+
+  // Schedule periodic notifications after initialization
+  useEffect(() => {
+    if (notificationPermission === "granted") {
+      schedulePeriodicNotifications()
+    }
+  }, [notificationPermission, schedulePeriodicNotifications])
+
+  // Monitor data changes for smart notifications
+  useEffect(() => {
+    checkForNotificationTriggers(realTimeData, previousData)
+    setPreviousData(realTimeData)
+  }, [realTimeData, previousData, checkForNotificationTriggers])
+
+  // Enhanced geolocation functions with permission handling
+  const requestLocationPermission = useCallback(async () => {
+    if (!navigator.geolocation) {
+      setLocationError("Geolocation is not supported by this browser")
+      setLocationPermission("denied")
+      addNotification("Geolocation not supported", NOTIFICATION_TYPES.ERROR)
+      return false
+    }
+
+    try {
+      addNotification("Requesting location permission...", NOTIFICATION_TYPES.INFO)
+      // Request permission by attempting to get position
+      const position = await new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 15000,
+          maximumAge: 0,
+        })
+      })
+
+      const { latitude, longitude, accuracy, altitude, heading, speed } = position.coords
+      setLocation({
+        lat: latitude,
+        lon: longitude,
+        accuracy: accuracy,
+        altitude: altitude,
+        heading: heading,
+        speed: speed,
+        timestamp: position.timestamp,
+      })
+      setLocationAccuracy(accuracy)
+      setLocationPermission("granted")
+      setLocationError(null)
+      addNotification(`Location permission granted! Accuracy: ${Math.round(accuracy)}m`, NOTIFICATION_TYPES.SUCCESS)
+
+      // Fetch weather for the exact location
+      await fetchWeatherByCoords(latitude, longitude)
+      return true
+    } catch (error) {
+      let errorMessage = "Unable to get location"
+      let permission = "denied"
+
+      switch (error.code) {
+        case error.PERMISSION_DENIED:
+          errorMessage = "Location access denied by user"
+          permission = "denied"
+          break
+        case error.POSITION_UNAVAILABLE:
+          errorMessage = "Location information unavailable"
+          permission = "prompt"
+          break
+        case error.TIMEOUT:
+          errorMessage = "Location request timed out"
+          permission = "prompt"
+          break
+        default:
+          errorMessage = `Location error: ${error.message}`
+          break
+      }
+
+      setLocationError(errorMessage)
+      setLocationPermission(permission)
+      addNotification(errorMessage, NOTIFICATION_TYPES.ERROR)
+      return false
+    }
+  }, [addNotification])
+
+  const getCurrentLocation = useCallback(async () => {
+    setWeatherLoading(true)
+    if (locationPermission === "denied") {
+      setShowLocationModal(true)
+      setWeatherLoading(false)
+      return
+    }
+
+    const success = await requestLocationPermission()
+    if (!success) {
+      // Fallback to default location (London)
+      addNotification("Using default location (London)", NOTIFICATION_TYPES.WARNING)
+      await fetchWeatherByCoords(51.5074, -0.1278)
+    }
+    setWeatherLoading(false)
+  }, [locationPermission, requestLocationPermission])
+
+  // Enhanced weather API functions with real API integration
+  const fetchWeatherByCoords = useCallback(
+    async (lat, lon) => {
+      setWeatherLoading(true)
+      try {
+        // Try to use real weather API first
+        let weatherResponse = null
+        if (WEATHER_API_KEY && WEATHER_API_KEY !== "your_api_key_here") {
+          try {
+            const response = await fetch(
+              `${WEATHER_API_URL}/weather?lat=${lat}&lon=${lon}&appid=${WEATHER_API_KEY}&units=metric`,
+            )
+            if (response.ok) {
+              weatherResponse = await response.json()
+            }
+          } catch (apiError) {
+            console.log("Weather API failed, using mock data:", apiError)
+          }
+        }
+
+        // Use mock data if API fails or no key provided
+        const mockWeatherData = weatherResponse || {
+          name: await getCityName(lat, lon),
+          coord: { lat, lon },
+          main: {
+            temp: Math.round(Math.random() * 15 + (lat > 50 ? 5 : lat > 40 ? 15 : 25)),
+            feels_like: Math.round(Math.random() * 15 + (lat > 50 ? 3 : lat > 40 ? 13 : 23)),
+            humidity: Math.round(Math.random() * 40 + 40),
+            pressure: Math.round(Math.random() * 50 + 1000),
+            temp_min: Math.round(Math.random() * 10 + (lat > 50 ? 0 : lat > 40 ? 10 : 20)),
+            temp_max: Math.round(Math.random() * 10 + (lat > 50 ? 10 : lat > 40 ? 20 : 30)),
+          },
+          weather: [
+            {
+              main: ["Clear", "Clouds", "Rain", "Snow"][Math.floor(Math.random() * 4)],
+              description: weatherResponse ? weatherResponse.weather[0].description : "based on your location",
+              icon: "03d",
+            },
+          ],
+          wind: {
+            speed: Math.round(Math.random() * 10 + 2),
+            deg: Math.round(Math.random() * 360),
+          },
+          visibility: Math.round(Math.random() * 5000 + 5000),
+          sys: {
+            sunrise: Date.now() - 3600000,
+            sunset: Date.now() + 3600000,
+            country: await getCountryCode(lat, lon),
+          },
+        }
+
+        setWeatherData(mockWeatherData)
+        addNotification(
+          `Weather updated for ${mockWeatherData.name} (${lat.toFixed(4)}, ${lon.toFixed(4)})`,
+          NOTIFICATION_TYPES.SUCCESS,
+        )
+
+        // Send weather notification if conditions are extreme
+        if (mockWeatherData.main.temp > 30 || mockWeatherData.main.temp < 0) {
+          if (notificationSettings.weather.enabled) {
+            sendBackgroundNotification("🌡️ Weather Alert", `Extreme temperature: ${mockWeatherData.main.temp}°C`, {
+              tag: "weather-alert",
+              priority: "normal",
+            })
+          }
+        }
+      } catch (error) {
+        addNotification("Failed to fetch weather data", NOTIFICATION_TYPES.ERROR)
+        console.error("Weather fetch error:", error)
+      } finally {
+        setWeatherLoading(false)
+      }
+    },
+    [addNotification, notificationSettings, sendBackgroundNotification],
+  )
+
+  // Helper functions for location data
+  const getCityName = async (lat, lon) => {
+    try {
+      // Try reverse geocoding (this would need a real API in production)
+      return lat > 50 ? "Northern City" : lat > 40 ? "Temperate City" : "Southern City"
+    } catch {
+      return "Unknown Location"
+    }
+  }
+
+  const getCountryCode = async (lat, lon) => {
+    // Simple country detection based on coordinates
+    if (lat > 49 && lat < 61 && lon > -8 && lon < 2) return "GB"
+    if (lat > 25 && lat < 49 && lon > -125 && lon < -66) return "US"
+    return "XX"
+  }
+
+  // Enhanced camera permission and stream management with video calling features
+  const requestCameraPermission = useCallback(async () => {
+    try {
+      // Check if getUserMedia is supported
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        const errorMessage = "Camera access not supported in this browser"
+        setCameraPermissions("denied")
+        addNotification(errorMessage, NOTIFICATION_TYPES.ERROR)
+        return null
+      }
+
+      addNotification("Requesting camera permission...", NOTIFICATION_TYPES.INFO)
+
+      // Start with basic constraints first
+      const basicConstraints = {
+        video: {
+          width: { ideal: 640, max: 1280 },
+          height: { ideal: 480, max: 720 },
+          frameRate: { ideal: 15, max: 30 },
+        },
+        audio: false, // Start without audio to avoid additional permission complexity
+      }
+
+      let stream = null
+      try {
+        // Try with basic video constraints first
+        stream = await navigator.mediaDevices.getUserMedia(basicConstraints)
+        setCameraPermissions("granted")
+        addNotification("Camera access granted!", NOTIFICATION_TYPES.SUCCESS)
+        setCameraStreams((prev) => ({ ...prev, main: stream }))
+
+        // If audio was requested and basic video worked, try to add audio
+        if (audioEnabled) {
+          try {
+            const audioStream = await navigator.mediaDevices.getUserMedia({
+              video: false,
+              audio: true,
+            })
+            // Combine video and audio tracks
+            const combinedStream = new MediaStream([...stream.getVideoTracks(), ...audioStream.getAudioTracks()])
+            // Stop the original stream and use combined
+            stream.getTracks().forEach((track) => track.stop())
+            setCameraStreams((prev) => ({ ...prev, main: combinedStream }))
+            addNotification("Camera and microphone access granted!", NOTIFICATION_TYPES.SUCCESS)
+            return combinedStream
+          } catch (audioError) {
+            addNotification("Camera granted, microphone denied", NOTIFICATION_TYPES.WARNING)
+            return stream
+          }
+        }
+
+        return stream
+      } catch (videoError) {
+        // Try with even more basic constraints
+        try {
+          const fallbackStream = await navigator.mediaDevices.getUserMedia({
+            video: { width: 320, height: 240 },
+            audio: false,
+          })
+          setCameraPermissions("granted")
+          addNotification("Camera access granted (low quality)", NOTIFICATION_TYPES.SUCCESS)
+          setCameraStreams((prev) => ({ ...prev, main: fallbackStream }))
+          return fallbackStream
+        } catch (fallbackError) {
+          throw videoError // Use original error
+        }
+      }
+    } catch (error) {
+      setCameraPermissions("denied")
+      let errorMessage = "Camera access denied"
+
+      // Provide specific error messages
+      if (error.name === "NotAllowedError") {
+        errorMessage =
+          "Camera permission denied. Please click the camera icon in your browser's address bar to allow access."
+      } else if (error.name === "NotFoundError") {
+        errorMessage = "No camera found. Please connect a camera and try again."
+      } else if (error.name === "NotReadableError") {
+        errorMessage = "Camera is being used by another application. Please close other apps and try again."
+      } else if (error.name === "OverconstrainedError") {
+        errorMessage = "Camera doesn't support the requested settings. Try with different quality settings."
+      } else if (error.name === "SecurityError") {
+        errorMessage = "Camera access blocked by browser security. Please use HTTPS or allow camera access."
+      } else if (error.name === "AbortError") {
+        errorMessage = "Camera access was interrupted. Please try again."
+      } else {
+        errorMessage = `Camera error: ${error.message || "Unknown error"}`
+      }
+
+      addNotification(errorMessage, NOTIFICATION_TYPES.ERROR)
+      console.error("Camera permission error:", error)
+      return null
+    }
+  }, [addNotification, audioEnabled])
+
+  const startCameraStream = useCallback(
+    async (cameraId, facingMode = "user") => {
+      // If camera permissions are denied, show helpful message
+      if (cameraPermissions === "denied") {
+        addNotification(
+          "Camera access denied. Please enable camera permissions in your browser settings.",
+          NOTIFICATION_TYPES.ERROR,
+        )
+        return
+      }
+
+      // If no permission yet, request it first
+      if (cameraPermissions !== "granted") {
+        const stream = await requestCameraPermission()
+        if (!stream) return
+      }
+
+      try {
+        const camera = cameraConfig.find((c) => c.id === cameraId)
+        // Use progressive constraint fallback
+        const constraintOptions = [
+          // High quality attempt
+          {
+            video: {
+              width: { ideal: videoQuality === "hd" ? 1280 : 640 },
+              height: { ideal: videoQuality === "hd" ? 720 : 480 },
+              frameRate: { ideal: 30, max: 30 },
+              facingMode: camera?.facing || facingMode,
+            },
+            audio: audioEnabled && camera?.type === "personal",
+          },
+          // Medium quality fallback
+          {
+            video: {
+              width: { ideal: 640 },
+              height: { ideal: 480 },
+              frameRate: { ideal: 15 },
+              facingMode: camera?.facing || facingMode,
+            },
+            audio: false,
+          },
+          // Basic quality fallback
+          {
+            video: {
+              width: 320,
+              height: 240,
+              facingMode: camera?.facing || facingMode,
+            },
+            audio: false,
+          },
+          // Minimal constraints
+          {
+            video: true,
+            audio: false,
+          },
+        ]
+
+        let stream = null
+        let constraintUsed = null
+
+        // Try each constraint level until one works
+        for (let i = 0; i < constraintOptions.length; i++) {
+          try {
+            stream = await navigator.mediaDevices.getUserMedia(constraintOptions[i])
+            constraintUsed = i
+            break
+          } catch (constraintError) {
+            console.log(`Constraint level ${i} failed:`, constraintError.message)
+            if (i === constraintOptions.length - 1) {
+              throw constraintError
+            }
+          }
+        }
+
+        if (!stream) {
+          throw new Error("Failed to get camera stream with any constraints")
+        }
+
+        setCameraStreams((prev) => ({ ...prev, [cameraId]: stream }))
+        setActiveCameras((prev) => new Set([...prev, cameraId]))
+
+        // Store camera settings
+        setCameraSettings((prev) => ({
+          ...prev,
+          [cameraId]: {
+            facingMode: constraintOptions[constraintUsed].video.facingMode,
+            quality: constraintUsed === 0 ? videoQuality : constraintUsed === 1 ? "medium" : "basic",
+            audio: constraintOptions[constraintUsed].audio,
+          },
+        }))
+
+        if (videoRefs.current[cameraId]) {
+          videoRefs.current[cameraId].srcObject = stream
+        }
+
+        const qualityMessage =
+          constraintUsed === 0 ? "" : constraintUsed === 1 ? " (medium quality)" : " (basic quality)"
+        addNotification(
+          `${camera?.name || `Camera ${cameraId}`} activated${qualityMessage}`,
+          NOTIFICATION_TYPES.SUCCESS,
+        )
+      } catch (error) {
+        const camera = cameraConfig.find((c) => c.id === cameraId)
+        let errorMessage = `Failed to start ${camera?.name || `camera ${cameraId}`}`
+        if (error.name === "NotAllowedError") {
+          errorMessage += ": Permission denied"
+        } else if (error.name === "NotFoundError") {
+          errorMessage += ": Camera not found"
+        } else if (error.name === "NotReadableError") {
+          errorMessage += ": Camera in use by another app"
+        } else {
+          errorMessage += `: ${error.message}`
+        }
+        addNotification(errorMessage, NOTIFICATION_TYPES.ERROR)
+        console.error("Camera stream error:", error)
+      }
+    },
+    [cameraPermissions, requestCameraPermission, addNotification, audioEnabled, videoQuality],
+  )
+
+  const stopCameraStream = useCallback(
+    (cameraId) => {
+      if (cameraStreams[cameraId]) {
+        const stream = cameraStreams[cameraId]
+        stream.getTracks().forEach((track) => track.stop())
+        setCameraStreams((prev) => {
+          const newStreams = { ...prev }
+          delete newStreams[cameraId]
+          return newStreams
+        })
+        setActiveCameras((prev) => {
+          const newActive = new Set(prev)
+          newActive.delete(cameraId)
+          return newActive
+        })
+        addNotification(`Camera ${cameraId} stopped`, NOTIFICATION_TYPES.INFO)
+      }
+    },
+    [cameraStreams, addNotification],
+  )
+
+  const switchCamera = useCallback(
+    async (cameraId) => {
+      stopCameraStream(cameraId)
+      await startCameraStream(cameraId, cameraSettings[cameraId]?.facingMode === "user" ? "environment" : "user")
+    },
+    [stopCameraStream, startCameraStream, cameraSettings],
+  )
+
+  // Add this new component before the return statement
+  const CameraPermissionGuide = () => {
+    if (cameraPermissions !== "denied") return null
+
+    return (
+      <div className="mb-4 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+        <div className="flex items-start space-x-3">
+          <Camera className="w-6 h-6 text-amber-600 mt-1" />
+          <div>
+            <h4 className="font-medium text-amber-800 dark:text-amber-200 mb-2">Camera Access Needed</h4>
+            <div className="text-sm text-amber-700 dark:text-amber-300 space-y-2">
+              <p>To use video features, please allow camera access:</p>
+              <ol className="list-decimal list-inside space-y-1 ml-2">
+                <li>Look for the camera icon in your browser's address bar</li>
+                <li>Click it and select "Always allow" for this site</li>
+                <li>Refresh the page if needed</li>
+              </ol>
+              <p className="text-xs mt-2">
+                <strong>Note:</strong> Some browsers block camera access on non-HTTPS sites or in preview environments.
+              </p>
+            </div>
+            <button
+              onClick={requestCameraPermission}
+              className="mt-3 px-3 py-1 bg-amber-600 text-white rounded text-sm hover:bg-amber-700"
+            >
+              Try Again
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // NEW FEATURE FUNCTIONS
+
+  // Mood Tracker Functions
+  const setMood = useCallback(
+    (mood, note = "") => {
+      const moodEntry = {
+        id: Date.now(),
+        mood: mood,
+        note: note,
+        timestamp: new Date(),
+        date: new Date().toDateString(),
+      }
+
+      setCurrentMood(mood)
+      setMoodHistory((prev) => [moodEntry, ...prev.slice(0, 29)]) // Keep last 30 entries
+      setMoodNote("")
+
+      addNotification(`Mood logged: ${mood.label}`, NOTIFICATION_TYPES.SUCCESS)
+
+      // Send encouraging notification based on mood
+      if (mood.value <= 2) {
+        setTimeout(() => {
+          sendBackgroundNotification(
+            "💙 Take Care",
+            "Remember, tough times don't last, but tough people do. You've got this!",
+            {
+              tag: "mood-support",
+              priority: "normal",
+            },
+          )
+        }, 2000)
+      } else if (mood.value >= 4) {
+        setTimeout(() => {
+          sendBackgroundNotification("🌟 Great Mood!", "Your positive energy is contagious! Keep shining!", {
+            tag: "mood-celebration",
+            priority: "low",
+          })
+        }, 2000)
+      }
+    },
+    [addNotification, sendBackgroundNotification],
+  )
+
+  // To-Do List Functions
+  const addTodo = useCallback(
+    (text, priority = "medium") => {
+      if (!text.trim()) return
+
+      const newTodoItem = {
+        id: Date.now(),
+        text: text.trim(),
+        completed: false,
+        priority: priority,
+        createdAt: new Date(),
+      }
+
+      setTodos((prev) => [newTodoItem, ...prev])
+      setNewTodo("")
+      addNotification("Task added successfully!", NOTIFICATION_TYPES.SUCCESS)
+    },
+    [addNotification],
+  )
+
+  const toggleTodo = useCallback(
+    (id) => {
+      setTodos((prev) =>
+        prev.map((todo) => {
+          if (todo.id === id) {
+            const updated = { ...todo, completed: !todo.completed }
+            if (updated.completed) {
+              addNotification("Task completed! 🎉", NOTIFICATION_TYPES.SUCCESS)
+              // Send celebration notification
+              setTimeout(() => {
+                sendBackgroundNotification("✅ Task Completed!", `Great job finishing: ${todo.text}`, {
+                  tag: "task-completed",
+                  priority: "low",
+                })
+              }, 500)
+            }
+            return updated
+          }
+          return todo
+        }),
+      )
+    },
+    [addNotification, sendBackgroundNotification],
+  )
+
+  const deleteTodo = useCallback(
+    (id) => {
+      setTodos((prev) => prev.filter((todo) => todo.id !== id))
+      addNotification("Task deleted", NOTIFICATION_TYPES.INFO)
+    },
+    [addNotification],
+  )
+
+  const updateTodo = useCallback(
+    (id, newText) => {
+      if (!newText.trim()) return
+
+      setTodos((prev) => prev.map((todo) => (todo.id === id ? { ...todo, text: newText.trim() } : todo)))
+      setEditingTodo(null)
+      addNotification("Task updated", NOTIFICATION_TYPES.SUCCESS)
+    },
+    [addNotification],
+  )
+
+  // Quotations Functions
+  const getRandomQuote = useCallback(() => {
+    const randomIndex = Math.floor(Math.random() * QUOTES.length)
+    setCurrentQuote(QUOTES[randomIndex])
+    addNotification("New quote loaded!", NOTIFICATION_TYPES.INFO)
+  }, [addNotification])
+
+  const toggleFavoriteQuote = useCallback(
+    (quote) => {
+      setFavoriteQuotes((prev) => {
+        const isAlreadyFavorite = prev.some((fav) => fav.text === quote.text)
+        if (isAlreadyFavorite) {
+          addNotification("Quote removed from favorites", NOTIFICATION_TYPES.INFO)
+          return prev.filter((fav) => fav.text !== quote.text)
+        } else {
+          addNotification("Quote added to favorites!", NOTIFICATION_TYPES.SUCCESS)
+          return [...prev, { ...quote, favoriteId: Date.now() }]
+        }
+      })
+    },
+    [addNotification],
+  )
+
+  // Initialize location and weather on component mount
+  useEffect(() => {
+    getCurrentLocation()
+  }, [getCurrentLocation])
+
+  // Real-time data simulation with notification triggers
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setRealTimeData((prev) => {
+        const newData = {
+          ...prev,
+          energyUsage: Math.max(0.5, prev.energyUsage + (Math.random() - 0.5) * 0.3),
+          temperature: Math.max(18, Math.min(28, prev.temperature + (Math.random() - 0.5) * 0.5)),
+          humidity: Math.max(40, Math.min(80, prev.humidity + (Math.random() - 0.5) * 2)),
+          costToday: prev.costToday + Math.random() * 0.1,
+          airQuality: Math.max(30, Math.min(100, prev.airQuality + (Math.random() - 0.5) * 5)),
+          securityStatus: Math.random() > 0.95 ? "Alert" : "Armed", // Occasional security alerts
+          devicesOnline:
+            Math.random() > 0.9 ? Math.max(10, prev.devicesOnline - 1) : Math.min(15, prev.devicesOnline + 1),
+        }
+        return newData
+      })
+    }, 5000)
+
+    return () => clearInterval(interval)
+  }, [])
+
+  // Cleanup camera streams on unmount
+  useEffect(() => {
+    return () => {
+      Object.values(cameraStreams).forEach((stream) => {
+        if (stream) {
+          stream.getTracks().forEach((track) => track.stop())
+        }
+      })
+    }
+  }, [cameraStreams])
+
+  // Auto-rotate quotes with sliding animation
+  useEffect(() => {
+    if (!autoSlideQuotes) return
+
+    const interval = setInterval(() => {
+      getRandomQuote()
+    }, quoteSlideInterval)
+
+    return () => clearInterval(interval)
+  }, [getRandomQuote, autoSlideQuotes, quoteSlideInterval])
+
+  // Mode switching with automations
+  const switchMode = useCallback(
+    (mode) => {
+      setCurrentMode(mode)
+      if (mode === "morning") {
+        setCurrentTheme("morning")
+        addNotification("Good morning! Morning mode activated", NOTIFICATION_TYPES.SUCCESS)
+        if (notificationSettings.reminders.enabled) {
+          sendBackgroundNotification("🌅 Morning Mode Active", "Your smart home is ready for the day!", {
+            tag: "morning-mode",
+            priority: "normal",
+          })
+        }
+        setTimeout(() => addNotification("Lights turned on", NOTIFICATION_TYPES.INFO), 1000)
+        setTimeout(() => addNotification("Coffee maker started", NOTIFICATION_TYPES.INFO), 2000)
+      } else if (mode === "night") {
+        setCurrentTheme("night")
+        setDarkMode(true)
+        addNotification("Good night! Night mode activated", NOTIFICATION_TYPES.SUCCESS)
+        if (notificationSettings.reminders.enabled) {
+          sendBackgroundNotification("🌙 Night Mode Active", "All systems secured for the night", {
+            tag: "night-mode",
+            priority: "normal",
+          })
+        }
+        setTimeout(() => addNotification("Security system armed", NOTIFICATION_TYPES.INFO), 1000)
+        setTimeout(() => addNotification("Doors locked", NOTIFICATION_TYPES.INFO), 2000)
+      } else {
+        setCurrentTheme("default")
+        setDarkMode(false)
+        addNotification("Default mode activated", NOTIFICATION_TYPES.INFO)
+      }
+    },
+    [addNotification, notificationSettings, sendBackgroundNotification],
+  )
+
+  // Test notification function
+  const sendTestNotification = useCallback(() => {
+    sendBackgroundNotification("🧪 Test Notification", "This is a test of your background notification system!", {
+      tag: "test-notification",
+      priority: "normal",
+      actions: [{ action: "test-action", title: "Test Action", icon: "/test-icon.png" }],
+    })
+  }, [sendBackgroundNotification])
+
+  // Notification Toast Component
+  const NotificationToast = ({ notification, onClose }) => {
+    const getIcon = () => {
+      switch (notification.type) {
+        case NOTIFICATION_TYPES.SUCCESS:
+          return <CheckCircle2 className="w-5 h-5 text-green-500" />
+        case NOTIFICATION_TYPES.WARNING:
+          return <AlertTriangle className="w-5 h-5 text-yellow-500" />
+        case NOTIFICATION_TYPES.ERROR:
+          return <XCircle className="w-5 h-5 text-red-500" />
+        case NOTIFICATION_TYPES.SECURITY:
+          return <Shield className="w-5 h-5 text-red-500" />
+        case NOTIFICATION_TYPES.ENERGY:
+          return <Zap className="w-5 h-5 text-yellow-500" />
+        case NOTIFICATION_TYPES.WEATHER:
+          return <Sun className="w-5 h-5 text-blue-500" />
+        default:
+          return <Info className="w-5 h-5 text-blue-500" />
+      }
+    }
+
+    const getBgColor = () => {
+      switch (notification.type) {
+        case NOTIFICATION_TYPES.SUCCESS:
+          return "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800"
+        case NOTIFICATION_TYPES.WARNING:
+          return "bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800"
+        case NOTIFICATION_TYPES.ERROR:
+        case NOTIFICATION_TYPES.SECURITY:
+          return "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800"
+        case NOTIFICATION_TYPES.ENERGY:
+          return "bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800"
+        case NOTIFICATION_TYPES.WEATHER:
+          return "bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800"
+        default:
+          return "bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800"
+      }
+    }
+
+    return (
+      <div className={`flex items-center p-4 rounded-lg border ${getBgColor()} shadow-lg transition-all duration-300`}>
+        {getIcon()}
+        <div className="ml-3 flex-1">
+          <p className="text-sm font-medium text-slate-800 dark:text-white">{notification.message}</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400">{notification.timestamp.toLocaleTimeString()}</p>
+        </div>
+        <button onClick={() => onClose(notification.id)} className="ml-4 text-slate-400 hover:text-slate-600">
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+    )
+  }
+
+  // Enhanced Notifications Dropdown
+  const NotificationsDropdown = () => {
+    if (!showNotifications) return null
+
+    return (
+      <div className="absolute top-full right-0 mt-2 w-80 max-h-96 overflow-y-auto bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 z-50">
+        <div className="p-4 border-b border-slate-200 dark:border-slate-700">
+          <div className="flex items-center justify-between">
+            <h3 className="font-semibold text-slate-800 dark:text-white">Notifications</h3>
+            <div className="flex items-center space-x-2">
+              <span className="text-sm text-slate-500">{notifications.length} active</span>
+              {notifications.length > 0 && (
+                <button onClick={() => setNotifications([])} className="text-xs text-blue-600 hover:text-blue-700">
+                  Clear all
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+        <div className="max-h-80 overflow-y-auto">
+          {notifications.length === 0 ? (
+            <div className="p-6 text-center text-slate-500">
+              <Bell className="w-8 h-8 mx-auto mb-2 opacity-50" />
+              <p>No notifications</p>
+              <p className="text-xs mt-1">You're all caught up!</p>
+            </div>
+          ) : (
+            <div className="p-2 space-y-2">
+              {notifications.map((notification) => (
+                <div
+                  key={notification.id}
+                  className="p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+                >
+                  <div className="flex items-start space-x-3">
+                    <div className="flex-shrink-0 mt-0.5">
+                      {notification.type === NOTIFICATION_TYPES.SUCCESS && (
+                        <CheckCircle2 className="w-4 h-4 text-green-500" />
+                      )}
+                      {notification.type === NOTIFICATION_TYPES.WARNING && (
+                        <AlertTriangle className="w-4 h-4 text-yellow-500" />
+                      )}
+                      {notification.type === NOTIFICATION_TYPES.ERROR && <XCircle className="w-4 h-4 text-red-500" />}
+                      {notification.type === NOTIFICATION_TYPES.INFO && <Info className="w-4 h-4 text-blue-500" />}
+                      {notification.type === NOTIFICATION_TYPES.SECURITY && <Shield className="w-4 h-4 text-red-500" />}
+                      {notification.type === NOTIFICATION_TYPES.ENERGY && <Zap className="w-4 h-4 text-yellow-500" />}
+                      {notification.type === NOTIFICATION_TYPES.WEATHER && <Sun className="w-4 h-4 text-blue-500" />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-slate-800 dark:text-white">{notification.message}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        {notification.timestamp.toLocaleTimeString()}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setNotifications((prev) => prev.filter((n) => n.id !== notification.id))}
+                      className="flex-shrink-0 p-1 text-slate-400 hover:text-slate-600 rounded"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  // Location Permission Modal
+  const LocationPermissionModal = () => {
+    if (!showLocationModal) return null
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className={`${theme.colors.card} rounded-2xl p-6 max-w-md w-full mx-4`}>
+          <div className="flex items-center justify-between mb-6">
+            <h2 className={`text-xl font-bold ${theme.colors.text}`}>Location Permission Required</h2>
+            <button
+              onClick={() => setShowLocationModal(false)}
+              className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+          <div className="space-y-4">
+            <div className="flex items-center space-x-3 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+              <Navigation className="w-8 h-8 text-blue-600" />
+              <div>
+                <h3 className="font-medium text-blue-900 dark:text-blue-100">Precise Location Needed</h3>
+                <p className="text-sm text-blue-700 dark:text-blue-300">
+                  We need your exact location to provide accurate weather information for your area.
+                </p>
+              </div>
+            </div>
+            <div className="space-y-3">
+              <div className="flex items-center space-x-2">
+                <Crosshair className="w-4 h-4 text-green-600" />
+                <span className="text-sm">Get weather for your exact location</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Shield className="w-4 h-4 text-green-600" />
+                <span className="text-sm">Location data stays on your device</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Bell className="w-4 h-4 text-green-600" />
+                <span className="text-sm">Receive location-based weather alerts</span>
+              </div>
+            </div>
+            <div className="flex space-x-3 pt-4">
+              <button
+                onClick={() => setShowLocationModal(false)}
+                className="flex-1 px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700"
+              >
+                Maybe Later
+              </button>
+              <button
+                onClick={async () => {
+                  setShowLocationModal(false)
+                  await requestLocationPermission()
+                }}
+                className={`flex-1 px-4 py-2 bg-${theme.colors.primary}-500 text-white rounded-lg hover:bg-${theme.colors.primary}-600`}
+              >
+                Allow Location
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Notification Settings Modal
+  const NotificationSettingsModal = () => {
+    if (!showNotificationSettings) return null
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className={`${theme.colors.card} rounded-2xl p-6 max-w-md w-full mx-4`}>
+          <div className="flex items-center justify-between mb-6">
+            <h2 className={`text-xl font-bold ${theme.colors.text}`}>Notification Settings</h2>
+            <button
+              onClick={() => setShowNotificationSettings(false)}
+              className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-700 rounded-lg">
+              <div>
+                <div className="font-medium">Browser Notifications</div>
+                <div className="text-sm text-slate-500">Status: {notificationPermission}</div>
+              </div>
+              <button
+                onClick={requestNotificationPermission}
+                disabled={notificationPermission === "granted"}
+                className={`px-3 py-1 rounded text-sm ${
+                  notificationPermission === "granted"
+                    ? "bg-green-100 text-green-600"
+                    : "bg-blue-100 text-blue-600 hover:bg-blue-200"
+                }`}
+              >
+                {notificationPermission === "granted" ? "Enabled" : "Enable"}
+              </button>
+            </div>
+            {Object.entries(notificationSettings).map(([key, setting]) => (
+              <div key={key} className="flex items-center justify-between">
+                <div>
+                  <div className="font-medium capitalize">{key} Notifications</div>
+                  <div className="text-sm text-slate-500">Priority: {setting.priority}</div>
+                </div>
+                <button
+                  onClick={() => {
+                    setNotificationSettings((prev) => ({
+                      ...prev,
+                      [key]: { ...prev[key], enabled: !prev[key].enabled },
+                    }))
+                  }}
+                  className={`w-12 h-6 rounded-full transition-colors ${
+                    setting.enabled ? `bg-${theme.colors.primary}-500` : "bg-slate-300 dark:bg-slate-600"
+                  }`}
+                >
+                  <div
+                    className={`w-5 h-5 bg-white rounded-full shadow-md transform transition-transform ${
+                      setting.enabled ? "translate-x-6" : "translate-x-0.5"
+                    }`}
+                  ></div>
+                </button>
+              </div>
+            ))}
+            <div className="pt-4 border-t border-slate-200 dark:border-slate-700">
+              <button
+                onClick={sendTestNotification}
+                disabled={notificationPermission !== "granted"}
+                className={`w-full px-4 py-2 rounded-lg ${
+                  notificationPermission === "granted"
+                    ? `bg-${theme.colors.primary}-500 text-white hover:bg-${theme.colors.primary}-600`
+                    : "bg-slate-300 text-slate-500 cursor-not-allowed"
+                }`}
+              >
+                Send Test Notification
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Enhanced Weather Widget with precise location
+  const WeatherWidget = () => {
+    const getWeatherIcon = (weather) => {
+      switch (weather?.toLowerCase()) {
+        case "clear":
+          return <Sun className="w-8 h-8 text-yellow-500" />
+        case "clouds":
+          return <CloudSun className="w-8 h-8 text-slate-500" />
+        case "rain":
+          return <CloudRain className="w-8 h-8 text-blue-500" />
+        case "snow":
+          return <CloudSnow className="w-8 h-8 text-slate-300" />
+        default:
+          return <Sun className="w-8 h-8 text-yellow-500" />
+      }
+    }
+
+    return (
+      <div className={`${theme.colors.card} rounded-2xl p-6 shadow-lg border border-slate-200 dark:border-slate-700`}>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className={`font-semibold ${theme.colors.text}`}>Weather</h3>
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={getCurrentLocation}
+              className={`p-2 rounded-lg transition-colors ${
+                locationPermission === "granted"
+                  ? "bg-green-100 text-green-600 dark:bg-green-900/30"
+                  : "hover:bg-slate-100 dark:hover:bg-slate-700"
+              }`}
+              disabled={weatherLoading}
+            >
+              <MapPin className={`w-4 h-4 ${weatherLoading ? "animate-pulse" : ""}`} />
+            </button>
+            <button
+              onClick={() => location && fetchWeatherByCoords(location.lat, location.lon)}
+              className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg"
+              disabled={weatherLoading}
+            >
+              <RotateCcw className={`w-4 h-4 ${weatherLoading ? "animate-spin" : ""}`} />
+            </button>
+          </div>
+        </div>
+        {locationError && locationPermission === "denied" && (
+          <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+            <p className="text-sm text-red-600 dark:text-red-400 mb-2">{locationError}</p>
+            <button
+              onClick={() => setShowLocationModal(true)}
+              className="text-sm text-red-700 dark:text-red-300 underline"
+            >
+              Enable Location Access
+            </button>
+          </div>
+        )}
+        {weatherData ? (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className={`text-3xl font-bold ${theme.colors.text}`}>{weatherData.main.temp}°C</div>
+                <div className="text-sm text-slate-500 capitalize">{weatherData.weather[0].description}</div>
+                <div className="text-xs text-slate-400">
+                  {weatherData.name} • Feels like {weatherData.main.feels_like}°C
+                </div>
+                {location && (
+                  <div className="text-xs text-slate-400 mt-1 flex items-center space-x-2">
+                    <span>
+                      📍 {location.lat.toFixed(4)}, {location.lon.toFixed(4)}
+                    </span>
+                    {locationAccuracy && <span className="text-green-600">±{Math.round(locationAccuracy)}m</span>}
+                  </div>
+                )}
+              </div>
+              {getWeatherIcon(weatherData.weather[0].main)}
+            </div>
+            <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-200 dark:border-slate-700">
+              <div className="text-center">
+                <div className="flex items-center justify-center mb-1">
+                  <Droplets className="w-4 h-4 text-blue-500 mr-1" />
+                </div>
+                <div className={`text-sm font-semibold ${theme.colors.text}`}>{weatherData.main.humidity}%</div>
+                <div className="text-xs text-slate-500">Humidity</div>
+              </div>
+              <div className="text-center">
+                <div className="flex items-center justify-center mb-1">
+                  <Wind className="w-4 h-4 text-slate-500 mr-1" />
+                </div>
+                <div className={`text-sm font-semibold ${theme.colors.text}`}>{weatherData.wind.speed} m/s</div>
+                <div className="text-xs text-slate-500">Wind</div>
+              </div>
+            </div>
+            {locationPermission === "granted" && (
+              <div className="text-xs text-green-600 dark:text-green-400 text-center">✓ Using your exact location</div>
+            )}
+          </div>
+        ) : (
+          <div className="text-center py-8">
+            <div className="text-slate-500">
+              {weatherLoading ? "Getting your location and weather..." : "Click location button to get weather"}
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // Enhanced Camera Widget with video calling interface
+  const CameraWidget = () => {
+    return (
+      <div className={`${theme.colors.card} rounded-2xl p-6 shadow-lg border border-slate-200 dark:border-slate-700`}>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className={`font-semibold ${theme.colors.text}`}>Video Cameras</h3>
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => setAudioEnabled(!audioEnabled)}
+              className={`p-2 rounded-lg transition-colors ${
+                audioEnabled
+                  ? "bg-green-100 text-green-600 dark:bg-green-900/30"
+                  : "bg-red-100 text-red-600 dark:bg-red-900/30"
+              }`}
+            >
+              {audioEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+            </button>
+            <button
+              onClick={() => setShowCameraModal(true)}
+              className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg"
+            >
+              <Video className="w-4 h-4" />
+            </button>
+            <button
+              onClick={requestCameraPermission}
+              className={`p-2 rounded-lg ${
+                cameraPermissions === "granted"
+                  ? "bg-green-100 text-green-600 dark:bg-green-900/30"
+                  : "hover:bg-slate-100 dark:hover:bg-slate-700"
+              }`}
+            >
+              <Camera className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+        <CameraPermissionGuide />
+        <div className="grid grid-cols-2 gap-3">
+          {cameraConfig.slice(0, 4).map((camera) => (
+            <div
+              key={camera.id}
+              className="relative aspect-video bg-slate-100 dark:bg-slate-700 rounded-lg overflow-hidden cursor-pointer hover:ring-2 hover:ring-blue-500 transition-all"
+              onClick={() => {
+                if (activeCameras.has(camera.id)) {
+                  stopCameraStream(camera.id)
+                } else {
+                  startCameraStream(camera.id)
+                }
+              }}
+            >
+              {activeCameras.has(camera.id) && cameraStreams[camera.id] ? (
+                <video
+                  ref={(el) => {
+                    if (el) {
+                      videoRefs.current[camera.id] = el
+                      el.srcObject = cameraStreams[camera.id]
+                    }
+                  }}
+                  autoPlay
+                  muted={!audioEnabled}
+                  playsInline
+                  className="w-full h-full object-cover"
+                  style={{
+                    transform: camera.facing === "user" ? "scaleX(-1)" : "none", // Mirror front camera
+                  }}
+                />
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  {cameraPermissions === "denied" ? (
+                    <VideoOff className="w-8 h-8 text-red-400" />
+                  ) : (
+                    <Camera className="w-8 h-8 text-slate-400" />
+                  )}
+                </div>
+              )}
+              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent text-white p-2">
+                <div className="text-xs font-medium">{camera.name}</div>
+                <div className="flex items-center justify-between text-xs">
+                  <span>{camera.location}</span>
+                  <div className="flex items-center space-x-1">
+                    {activeCameras.has(camera.id) && audioEnabled && camera.type === "personal" && (
+                      <Volume2 className="w-3 h-3" />
+                    )}
+                    <div
+                      className={`w-2 h-2 rounded-full ${activeCameras.has(camera.id) ? "bg-green-400" : "bg-slate-400"}`}
+                    ></div>
+                  </div>
+                </div>
+              </div>
+              <div className="absolute top-2 right-2 flex space-x-1">
+                {activeCameras.has(camera.id) && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      switchCamera(camera.id)
+                    }}
+                    className="p-1 bg-black/50 rounded-full hover:bg-black/70 transition-colors"
+                  >
+                    <RotateCw className="w-3 h-3 text-white" />
+                  </button>
+                )}
+                {activeCameras.has(camera.id) ? (
+                  <Eye className="w-4 h-4 text-green-400" />
+                ) : (
+                  <EyeOff className="w-4 h-4 text-slate-400" />
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="mt-4 flex items-center justify-between text-sm">
+          <span className="text-slate-500">
+            {activeCameras.size}/{cameraConfig.length} cameras active
+          </span>
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2">
+              <div
+                className={`w-2 h-2 rounded-full ${cameraPermissions === "granted" ? "bg-green-500" : "bg-red-500"}`}
+              ></div>
+              <span className="text-slate-500 text-xs">
+                {cameraPermissions === "granted" ? "Camera ready" : "Camera access needed"}
+              </span>
+            </div>
+            <select
+              value={videoQuality}
+              onChange={(e) => setVideoQuality(e.target.value)}
+              className="text-xs bg-transparent border border-slate-300 dark:border-slate-600 rounded px-2 py-1"
+            >
+              <option value="sd">SD (480p)</option>
+              <option value="hd">HD (720p)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // NEW FEATURE WIDGETS
+
+  // Mood Tracker Widget
+  const MoodTrackerWidget = () => {
+    const getTodaysMoods = () => {
+      const today = new Date().toDateString()
+      return moodHistory.filter((entry) => entry.date === today)
+    }
+
+    const getAverageMood = () => {
+      const recentMoods = moodHistory.slice(0, 7) // Last 7 entries
+      if (recentMoods.length === 0) return null
+      const average = recentMoods.reduce((sum, entry) => sum + entry.mood.value, 0) / recentMoods.length
+      return Math.round(average)
+    }
+
+    const todaysMoods = getTodaysMoods()
+    const averageMood = getAverageMood()
+
+    return (
+      <div className={`${theme.colors.card} rounded-2xl p-6 shadow-lg border border-slate-200 dark:border-slate-700`}>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className={`font-semibold ${theme.colors.text}`}>Mood Tracker</h3>
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => setShowMoodHistory(!showMoodHistory)}
+              className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg"
+            >
+              {showMoodHistory ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </button>
+            <Calendar className="w-4 h-4 text-slate-500" />
+          </div>
+        </div>
+
+        {/* Current Mood Selection */}
+        <div className="mb-4">
+          <p className="text-sm text-slate-600 dark:text-slate-400 mb-3">How are you feeling today?</p>
+          <div className="grid grid-cols-5 gap-2">
+            {MOOD_OPTIONS.map((mood) => (
+              <button
+                key={mood.value}
+                onClick={() => setMood(mood, moodNote)}
+                className={`p-3 rounded-lg border-2 transition-all hover:scale-105 ${
+                  currentMood?.value === mood.value
+                    ? `border-${theme.colors.primary}-500 bg-${theme.colors.primary}-50 dark:bg-${theme.colors.primary}-900/20`
+                    : "border-slate-200 dark:border-slate-600 hover:border-slate-300 dark:hover:border-slate-500"
+                }`}
+              >
+                <div className="text-2xl mb-1">{mood.emoji}</div>
+                <div className={`text-xs ${mood.color}`}>{mood.label}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Mood Note */}
+        <div className="mb-4">
+          <input
+            type="text"
+            value={moodNote}
+            onChange={(e) => setMoodNote(e.target.value)}
+            placeholder="Add a note about your mood..."
+            className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+
+        {/* Today's Summary */}
+        <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-200 dark:border-slate-700">
+          <div className="text-center">
+            <div className={`text-lg font-bold ${theme.colors.text}`}>{todaysMoods.length}</div>
+            <div className="text-xs text-slate-500">Today's Entries</div>
+          </div>
+          <div className="text-center">
+            <div className={`text-lg font-bold ${theme.colors.text}`}>
+              {averageMood ? MOOD_OPTIONS.find((m) => m.value === averageMood)?.emoji || "😐" : "😐"}
+            </div>
+            <div className="text-xs text-slate-500">7-Day Average</div>
+          </div>
+        </div>
+
+        {/* Mood History */}
+        {showMoodHistory && (
+          <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700">
+            <h4 className="text-sm font-medium mb-3">Recent Moods</h4>
+            <div className="space-y-2 max-h-32 overflow-y-auto">
+              {moodHistory.slice(0, 5).map((entry) => (
+                <div key={entry.id} className="flex items-center justify-between text-sm">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-lg">{entry.mood.emoji}</span>
+                    <div>
+                      <div className={`font-medium ${theme.colors.text}`}>{entry.mood.label}</div>
+                      {entry.note && <div className="text-xs text-slate-500">{entry.note}</div>}
+                    </div>
+                  </div>
+                  <div className="text-xs text-slate-400">
+                    {entry.timestamp.toLocaleDateString() === new Date().toLocaleDateString()
+                      ? entry.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                      : entry.timestamp.toLocaleDateString()}
+                  </div>
+                </div>
+              ))}
+              {moodHistory.length === 0 && (
+                <div className="text-center text-slate-500 py-4">
+                  <Heart className="w-6 h-6 mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">No mood entries yet</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // To-Do List Widget
+  const TodoListWidget = () => {
+    const filteredTodos = todos.filter((todo) => {
+      if (todoFilter === "active") return !todo.completed
+      if (todoFilter === "completed") return todo.completed
+      return true
+    })
+
+    const completedCount = todos.filter((todo) => todo.completed).length
+    const totalCount = todos.length
+
+    const getPriorityColor = (priority) => {
+      switch (priority) {
+        case "high":
+          return "text-red-500"
+        case "medium":
+          return "text-yellow-500"
+        case "low":
+          return "text-green-500"
+        default:
+          return "text-slate-500"
+      }
+    }
+
+    return (
+      <div className={`${theme.colors.card} rounded-2xl p-6 shadow-lg border border-slate-200 dark:border-slate-700`}>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className={`font-semibold ${theme.colors.text}`}>To-Do List</h3>
+          <div className="flex items-center space-x-2">
+            <div className="text-xs text-slate-500">
+              {completedCount}/{totalCount} done
+            </div>
+            <Clock className="w-4 h-4 text-slate-500" />
+          </div>
+        </div>
+
+        {/* Add New Todo */}
+        <form
+          onSubmit={(e) => {
+            e.preventDefault()
+            addTodo(newTodo)
+          }}
+          className="mb-4"
+        >
+          <div className="flex space-x-2">
+            <input
+              type="text"
+              value={newTodo}
+              onChange={(e) => setNewTodo(e.target.value)}
+              placeholder="Add a new task..."
+              className="flex-1 px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <button
+              type="submit"
+              className={`p-2 bg-${theme.colors.primary}-500 text-white rounded-lg hover:bg-${theme.colors.primary}-600 transition-colors`}
+            >
+              <Plus className="w-4 h-4" />
+            </button>
+          </div>
+        </form>
+
+        {/* Filter Buttons */}
+        <div className="flex space-x-1 mb-4">
+          {["all", "active", "completed"].map((filter) => (
+            <button
+              key={filter}
+              onClick={() => setTodoFilter(filter)}
+              className={`px-3 py-1 text-xs rounded-full transition-colors ${
+                todoFilter === filter
+                  ? `bg-${theme.colors.primary}-500 text-white`
+                  : "bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600"
+              }`}
+            >
+              {filter.charAt(0).toUpperCase() + filter.slice(1)}
+            </button>
+          ))}
+        </div>
+
+        {/* Todo List */}
+        <div className="space-y-2 max-h-64 overflow-y-auto">
+          {filteredTodos.map((todo) => (
+            <div
+              key={todo.id}
+              className={`flex items-center space-x-3 p-3 rounded-lg border transition-all ${
+                todo.completed
+                  ? "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800"
+                  : "bg-slate-50 dark:bg-slate-700 border-slate-200 dark:border-slate-600"
+              }`}
+            >
+              <button
+                onClick={() => toggleTodo(todo.id)}
+                className={`flex-shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${
+                  todo.completed
+                    ? "bg-green-500 border-green-500 text-white"
+                    : "border-slate-300 dark:border-slate-500 hover:border-green-500"
+                }`}
+              >
+                {todo.completed && <Check className="w-3 h-3" />}
+              </button>
+
+              <div className="flex-1 min-w-0">
+                {editingTodo === todo.id ? (
+                  <input
+                    type="text"
+                    defaultValue={todo.text}
+                    onBlur={(e) => updateTodo(todo.id, e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        updateTodo(todo.id, e.target.value)
+                      } else if (e.key === "Escape") {
+                        setEditingTodo(null)
+                      }
+                    }}
+                    className="w-full px-2 py-1 text-sm bg-white dark:bg-slate-600 border border-slate-300 dark:border-slate-500 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    autoFocus
+                  />
+                ) : (
+                  <div
+                    className={`text-sm ${
+                      todo.completed
+                        ? "line-through text-slate-500"
+                        : `${theme.colors.text} hover:text-blue-600 cursor-pointer`
+                    }`}
+                    onClick={() => !todo.completed && setEditingTodo(todo.id)}
+                  >
+                    {todo.text}
+                  </div>
+                )}
+                <div className="flex items-center space-x-2 mt-1">
+                  <div className={`text-xs ${getPriorityColor(todo.priority)}`}>{todo.priority} priority</div>
+                  <div className="text-xs text-slate-400">{todo.createdAt.toLocaleDateString()}</div>
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-1">
+                <button
+                  onClick={() => setEditingTodo(editingTodo === todo.id ? null : todo.id)}
+                  className="p-1 text-slate-400 hover:text-blue-600 rounded"
+                >
+                  <Edit3 className="w-3 h-3" />
+                </button>
+                <button onClick={() => deleteTodo(todo.id)} className="p-1 text-slate-400 hover:text-red-600 rounded">
+                  <Trash2 className="w-3 h-3" />
+                </button>
+              </div>
+            </div>
+          ))}
+          {filteredTodos.length === 0 && (
+            <div className="text-center text-slate-500 py-8">
+              <CheckCircle2 className="w-8 h-8 mx-auto mb-2 opacity-50" />
+              <p className="text-sm">
+                {todoFilter === "completed"
+                  ? "No completed tasks"
+                  : todoFilter === "active"
+                    ? "No active tasks"
+                    : "No tasks yet"}
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Progress Bar */}
+        {totalCount > 0 && (
+          <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700">
+            <div className="flex items-center justify-between text-xs text-slate-500 mb-2">
+              <span>Progress</span>
+              <span>{Math.round((completedCount / totalCount) * 100)}%</span>
+            </div>
+            <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2">
+              <div
+                className={`bg-${theme.colors.primary}-500 h-2 rounded-full transition-all duration-300`}
+                style={{ width: `${(completedCount / totalCount) * 100}%` }}
+              ></div>
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // Quotations Widget with Auto-Slide
+  const QuotationsWidget = () => {
+    const [isSliding, setIsSliding] = useState(false)
+    const [nextQuote, setNextQuote] = useState(null)
+    const isCurrentQuoteFavorite = favoriteQuotes.some((fav) => fav.text === currentQuote.text)
+
+    const slideToNextQuote = useCallback(() => {
+      if (isSliding) return
+
+      const randomIndex = Math.floor(Math.random() * QUOTES.length)
+      const newQuote = QUOTES[randomIndex]
+
+      if (newQuote.text === currentQuote.text) {
+        // If same quote, try next one
+        const nextIndex = (randomIndex + 1) % QUOTES.length
+        setNextQuote(QUOTES[nextIndex])
+      } else {
+        setNextQuote(newQuote)
+      }
+
+      setIsSliding(true)
+
+      setTimeout(() => {
+        setCurrentQuote(nextQuote || newQuote)
+        setIsSliding(false)
+        setNextQuote(null)
+        addNotification("New quote loaded!", NOTIFICATION_TYPES.INFO)
+      }, 500)
+    }, [currentQuote, isSliding, nextQuote, addNotification])
+
+    const manualGetRandomQuote = useCallback(() => {
+      slideToNextQuote()
+    }, [slideToNextQuote])
+
+    return (
+      <div
+        className={`${theme.colors.card} rounded-2xl p-6 shadow-lg border border-slate-200 dark:border-slate-700 relative overflow-hidden`}
+      >
+        <div className="flex items-center justify-between mb-4">
+          <h3 className={`font-semibold ${theme.colors.text}`}>Daily Inspiration</h3>
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => setAutoSlideQuotes(!autoSlideQuotes)}
+              className={`p-2 rounded-lg transition-colors ${
+                autoSlideQuotes
+                  ? "bg-green-100 text-green-600 dark:bg-green-900/30"
+                  : "bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-500"
+              }`}
+              title={autoSlideQuotes ? "Auto-slide ON" : "Auto-slide OFF"}
+            >
+              <RotateCw className={`w-4 h-4 ${autoSlideQuotes ? "animate-spin" : ""}`} />
+            </button>
+            <button
+              onClick={() => toggleFavoriteQuote(currentQuote)}
+              className={`p-2 rounded-lg transition-colors ${
+                isCurrentQuoteFavorite
+                  ? "bg-red-100 text-red-600 dark:bg-red-900/30"
+                  : "hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500"
+              }`}
+            >
+              <Heart className={`w-4 h-4 ${isCurrentQuoteFavorite ? "fill-current" : ""}`} />
+            </button>
+            <button
+              onClick={manualGetRandomQuote}
+              className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg"
+              disabled={isSliding}
+            >
+              <RefreshCw className={`w-4 h-4 ${isSliding ? "animate-spin" : ""}`} />
+            </button>
+            <Quote className="w-4 h-4 text-slate-500" />
+          </div>
+        </div>
+
+        {/* Auto-slide indicator */}
+        {autoSlideQuotes && (
+          <div className="absolute top-2 right-2 flex items-center space-x-1">
+            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+            <span className="text-xs text-green-600">Auto</span>
+          </div>
+        )}
+
+        {/* Current Quote with Slide Animation */}
+        <div className="mb-6 relative">
+          <div
+            className={`transition-all duration-500 ${isSliding ? "transform -translate-x-full opacity-0" : "transform translate-x-0 opacity-100"}`}
+          >
+            <div className="relative">
+              <Quote className="absolute -top-2 -left-2 w-8 h-8 text-slate-300 dark:text-slate-600" />
+              <blockquote className={`text-lg font-medium ${theme.colors.text} italic pl-6 pr-2 leading-relaxed`}>
+                {currentQuote.text}
+              </blockquote>
+            </div>
+            <div className="text-right mt-4">
+              <cite className="text-sm text-slate-500 not-italic">— {currentQuote.author}</cite>
+            </div>
+          </div>
+
+          {/* Next Quote (slides in from right) */}
+          {isSliding && nextQuote && (
+            <div className="absolute inset-0 transition-all duration-500 transform translate-x-full animate-pulse">
+              <div className="relative">
+                <Quote className="absolute -top-2 -left-2 w-8 h-8 text-slate-300 dark:text-slate-600" />
+                <blockquote className={`text-lg font-medium ${theme.colors.text} italic pl-6 pr-2 leading-relaxed`}>
+                  {nextQuote.text}
+                </blockquote>
+              </div>
+              <div className="text-right mt-4">
+                <cite className="text-sm text-slate-500 not-italic">— {nextQuote.author}</cite>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Auto-slide Controls */}
+        {autoSlideQuotes && (
+          <div className="mb-4 p-3 bg-slate-50 dark:bg-slate-700 rounded-lg">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium">Auto-slide Speed</span>
+              <span className="text-xs text-slate-500">{quoteSlideInterval / 1000}s</span>
+            </div>
+            <input
+              type="range"
+              min="5000"
+              max="30000"
+              step="5000"
+              value={quoteSlideInterval}
+              onChange={(e) => setQuoteSlideInterval(Number(e.target.value))}
+              className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer"
+            />
+            <div className="flex justify-between text-xs text-slate-400 mt-1">
+              <span>5s</span>
+              <span>30s</span>
+            </div>
+          </div>
+        )}
+
+        {/* Favorite Quotes */}
+        {favoriteQuotes.length > 0 && (
+          <div className="pt-4 border-t border-slate-200 dark:border-slate-700">
+            <h4 className="text-sm font-medium mb-3 flex items-center">
+              <Heart className="w-4 h-4 text-red-500 mr-2" />
+              Favorite Quotes ({favoriteQuotes.length})
+            </h4>
+            <div className="space-y-3 max-h-32 overflow-y-auto">
+              {favoriteQuotes.slice(0, 3).map((quote) => (
+                <div
+                  key={quote.favoriteId}
+                  className="p-3 bg-slate-50 dark:bg-slate-700 rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors"
+                  onClick={() => setCurrentQuote(quote)}
+                >
+                  <p className="text-sm font-medium text-slate-800 dark:text-white line-clamp-2">"{quote.text}"</p>
+                  <p className="text-xs text-slate-500 mt-1">— {quote.author}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Quote Categories */}
+        <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700">
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={manualGetRandomQuote}
+              className={`px-3 py-1 text-xs rounded-full bg-${theme.colors.primary}-100 text-${theme.colors.primary}-700 hover:bg-${theme.colors.primary}-200 transition-colors`}
+              disabled={isSliding}
+            >
+              Get New Quote
+            </button>
+            <div className="text-xs text-slate-500 flex items-center">
+              <Star className="w-3 h-3 mr-1" />
+              {favoriteQuotes.length} favorites
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Chatbot Sidebar Component
+  const ChatbotSidebar = () => {
+    const [chatInput, setChatInput] = useState("")
+
+    const handleSendMessage = (e) => {
+      e.preventDefault()
+      if (!chatInput.trim()) return
+
+      const userMessage = { type: "user", message: chatInput, timestamp: new Date() }
+      setChatMessages((prev) => [...prev, userMessage])
+
+      // Simulate bot response
+      setTimeout(() => {
+        const responses = [
+          "I can help you manage your smart home! Try asking about weather, cameras, or mood tracking.",
+          "Your home systems are running smoothly! Need help with any specific features?",
+          "I noticed you've been using the mood tracker - that's great for wellness!",
+          "Would you like me to help you set up any notifications or reminders?",
+          "Your energy usage looks good today! Want tips on optimization?",
+        ]
+        const botMessage = {
+          type: "bot",
+          message: responses[Math.floor(Math.random() * responses.length)],
+          timestamp: new Date(),
+        }
+        setChatMessages((prev) => [...prev, botMessage])
+      }, 1000)
+
+      setChatInput("")
+    }
+
+    if (!showChatbotSidebar) return null
+
+    return (
+      <div className="fixed right-0 top-0 h-full w-80 bg-white dark:bg-slate-800 shadow-2xl border-l border-slate-200 dark:border-slate-700 z-40 transform transition-transform duration-300">
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700">
+          <div className="flex items-center space-x-3">
+            <div className="relative">
+              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+                <Bot className="w-6 h-6 text-white" />
+              </div>
+              <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white dark:border-slate-800 animate-pulse"></div>
+            </div>
+            <div>
+              <h3 className="font-semibold text-slate-800 dark:text-white">Smart Assistant</h3>
+              <p className="text-xs text-green-600">Online & Ready</p>
+            </div>
+          </div>
+          <button
+            onClick={() => setShowChatbotSidebar(false)}
+            className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Chat Messages */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-4 h-[calc(100vh-140px)]">
+          {chatMessages.map((msg, index) => (
+            <div key={index} className={`flex ${msg.type === "user" ? "justify-end" : "justify-start"}`}>
+              <div
+                className={`max-w-[80%] p-3 rounded-2xl ${
+                  msg.type === "user"
+                    ? "bg-blue-500 text-white rounded-br-sm"
+                    : "bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-white rounded-bl-sm"
+                }`}
+              >
+                <p className="text-sm">{msg.message}</p>
+                {msg.timestamp && (
+                  <p className={`text-xs mt-1 ${msg.type === "user" ? "text-blue-100" : "text-slate-500"}`}>
+                    {msg.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                  </p>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Input */}
+        <form onSubmit={handleSendMessage} className="p-4 border-t border-slate-200 dark:border-slate-700">
+          <div className="flex space-x-2">
+            <input
+              type="text"
+              value={chatInput}
+              onChange={(e) => setChatInput(e.target.value)}
+              placeholder="Ask me anything about your smart home..."
+              className="flex-1 px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <button
+              type="submit"
+              className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+            >
+              <MessageSquare className="w-4 h-4" />
+            </button>
+          </div>
+        </form>
+      </div>
+    )
+  }
+
+  // Feedback Modal Component
+  const FeedbackModal = () => {
+    const handleSubmitFeedback = (e) => {
+      e.preventDefault()
+      addNotification("Thank you for your feedback!", NOTIFICATION_TYPES.SUCCESS)
+      setShowFeedback(false)
+      setFeedbackData({ rating: 0, message: "", category: "general" })
+    }
+
+    if (!showFeedback) return null
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className={`${theme.colors.card} rounded-2xl p-6 max-w-md w-full mx-4`}>
+          <div className="flex items-center justify-between mb-6">
+            <h2 className={`text-xl font-bold ${theme.colors.text}`}>Send Feedback</h2>
+            <button
+              onClick={() => setShowFeedback(false)}
+              className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+          <form onSubmit={handleSubmitFeedback} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-2">Rating</label>
+              <div className="flex space-x-1">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button
+                    key={star}
+                    type="button"
+                    onClick={() => setFeedbackData((prev) => ({ ...prev, rating: star }))}
+                    className={`p-1 ${star <= feedbackData.rating ? "text-yellow-500" : "text-slate-300"}`}
+                  >
+                    <Star className="w-6 h-6 fill-current" />
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Category</label>
+              <select
+                value={feedbackData.category}
+                onChange={(e) => setFeedbackData((prev) => ({ ...prev, category: e.target.value }))}
+                className="w-full p-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700"
+              >
+                <option value="general">General</option>
+                <option value="notifications">Notifications</option>
+                <option value="weather">Weather Feature</option>
+                <option value="camera">Camera System</option>
+                <option value="location">Location Services</option>
+                <option value="mood">Mood Tracker</option>
+                <option value="todo">To-Do List</option>
+                <option value="quotes">Quotations</option>
+                <option value="bug">Bug Report</option>
+                <option value="feature">Feature Request</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Message</label>
+              <textarea
+                value={feedbackData.message}
+                onChange={(e) => setFeedbackData((prev) => ({ ...prev, message: e.target.value }))}
+                className="w-full p-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 h-24 resize-none"
+                placeholder="Tell us about your experience with the new features: mood tracking, to-do lists, quotations, and more..."
+                required
+              />
+            </div>
+            <div className="flex space-x-3">
+              <button
+                type="button"
+                onClick={() => setShowFeedback(false)}
+                className="flex-1 px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className={`flex-1 px-4 py-2 bg-${theme.colors.primary}-500 text-white rounded-lg hover:bg-${theme.colors.primary}-600`}
+              >
+                Send Feedback
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    )
+  }
+
+  // Camera Modal Component
+  const CameraModal = () => {
+    if (!showCameraModal) return null
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className={`${theme.colors.card} rounded-2xl p-6 max-w-3xl w-full mx-4`}>
+          <div className="flex items-center justify-between mb-6">
+            <h2 className={`text-xl font-bold ${theme.colors.text}`}>Camera Management</h2>
+            <button
+              onClick={() => setShowCameraModal(false)}
+              className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {cameraConfig.map((camera) => (
+              <div
+                key={camera.id}
+                className="relative aspect-video bg-slate-100 dark:bg-slate-700 rounded-lg overflow-hidden cursor-pointer hover:ring-2 hover:ring-blue-500 transition-all"
+                onClick={() => {
+                  if (activeCameras.has(camera.id)) {
+                    stopCameraStream(camera.id)
+                  } else {
+                    startCameraStream(camera.id)
+                  }
+                }}
+              >
+                {activeCameras.has(camera.id) && cameraStreams[camera.id] ? (
+                  <video
+                    ref={(el) => {
+                      if (el) {
+                        videoRefs.current[camera.id] = el
+                        el.srcObject = cameraStreams[camera.id]
+                      }
+                    }}
+                    autoPlay
+                    muted={!audioEnabled}
+                    playsInline
+                    className="w-full h-full object-cover"
+                    style={{
+                      transform: camera.facing === "user" ? "scaleX(-1)" : "none", // Mirror front camera
+                    }}
+                  />
+                ) : (
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    {cameraPermissions === "denied" ? (
+                      <VideoOff className="w-8 h-8 text-red-400" />
+                    ) : (
+                      <Camera className="w-8 h-8 text-slate-400" />
+                    )}
+                  </div>
+                )}
+                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent text-white p-2">
+                  <div className="text-xs font-medium">{camera.name}</div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span>{camera.location}</span>
+                    <div className="flex items-center space-x-1">
+                      {activeCameras.has(camera.id) && audioEnabled && camera.type === "personal" && (
+                        <Volume2 className="w-3 h-3" />
+                      )}
+                      <div
+                        className={`w-2 h-2 rounded-full ${activeCameras.has(camera.id) ? "bg-green-400" : "bg-slate-400"}`}
+                      ></div>
+                    </div>
+                  </div>
+                </div>
+                <div className="absolute top-2 right-2 flex space-x-1">
+                  {activeCameras.has(camera.id) && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        switchCamera(camera.id)
+                      }}
+                      className="p-1 bg-black/50 rounded-full hover:bg-black/70 transition-colors"
+                    >
+                      <RotateCw className="w-3 h-3 text-white" />
+                    </button>
+                  )}
+                  {activeCameras.has(camera.id) ? (
+                    <Eye className="w-4 h-4 text-green-400" />
+                  ) : (
+                    <EyeOff className="w-4 h-4 text-slate-400" />
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-4 flex items-center justify-between text-sm">
+            <span className="text-slate-500">
+              {activeCameras.size}/{cameraConfig.length} cameras active
+            </span>
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2">
+                <div
+                  className={`w-2 h-2 rounded-full ${cameraPermissions === "granted" ? "bg-green-500" : "bg-red-500"}`}
+                ></div>
+                <span className="text-slate-500 text-xs">
+                  {cameraPermissions === "granted" ? "Camera ready" : "Camera access needed"}
+                </span>
+              </div>
+              <select
+                value={videoQuality}
+                onChange={(e) => setVideoQuality(e.target.value)}
+                className="text-xs bg-transparent border border-slate-300 dark:border-slate-600 rounded px-2 py-1"
+              >
+                <option value="sd">SD (480p)</option>
+                <option value="hd">HD (720p)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Fullscreen Camera Modal Component
+  const FullscreenCameraModal = () => {
+    if (!fullscreenCamera) return null
+
+    const camera = cameraConfig.find((c) => c.id === fullscreenCamera)
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50">
+        <div className="relative w-full max-w-4xl mx-4">
+          <button
+            onClick={() => setFullscreenCamera(null)}
+            className="absolute top-4 right-4 p-2 bg-black bg-opacity-50 text-white rounded-full hover:bg-opacity-70 transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+          {activeCameras.has(camera.id) && cameraStreams[camera.id] ? (
+            <video
+              ref={(el) => {
+                if (el) {
+                  videoRefs.current[camera.id] = el
+                  el.srcObject = cameraStreams[camera.id]
+                }
+              }}
+              autoPlay
+              muted={!audioEnabled}
+              playsInline
+              className="w-full h-full object-cover rounded-2xl"
+              style={{
+                transform: camera.facing === "user" ? "scaleX(-1)" : "none", // Mirror front camera
+              }}
+            />
+          ) : (
+            <div className="absolute inset-0 flex items-center justify-center">
+              {cameraPermissions === "denied" ? (
+                <VideoOff className="w-16 h-16 text-red-400" />
+              ) : (
+                <Camera className="w-16 h-16 text-slate-400" />
+              )}
+            </div>
+          )}
+          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent text-white p-4">
+            <div className="text-lg font-medium">{camera.name}</div>
+            <div className="flex items-center justify-between text-sm">
+              <span>{camera.location}</span>
+              <div className="flex items-center space-x-1">
+                {activeCameras.has(camera.id) && audioEnabled && camera.type === "personal" && (
+                  <Volume2 className="w-4 h-4" />
+                )}
+                <div
+                  className={`w-3 h-3 rounded-full ${activeCameras.has(camera.id) ? "bg-green-400" : "bg-slate-400"}`}
+                ></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className={`min-h-screen ${theme.colors.background} ${darkMode ? "dark" : ""} transition-all duration-300`}>
+      {/* Notification Container - Only shows when showNotifications is false */}
+      {!showNotifications && (
+        <div className="fixed top-4 right-4 space-y-2 z-40 max-w-sm">
+          {notifications.map((notification) => (
+            <NotificationToast
+              key={notification.id}
+              notification={notification}
+              onClose={(id) => setNotifications((prev) => prev.filter((n) => n.id !== id))}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Enhanced Header */}
+      <header className={`${theme.colors.card} shadow-sm border-b border-slate-200 dark:border-slate-700`}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            <div className="flex items-center space-x-4">
+              <Home className={`w-8 h-8 text-${theme.colors.primary}-600`} />
+              <div>
+                <h1 className={`text-2xl font-bold ${theme.colors.text}`}>Smart Home</h1>
+                <div className="text-sm text-slate-500">
+                  {location ? (
+                    <span className="flex items-center space-x-1">
+                      <span>
+                        📍 {location.lat.toFixed(4)}, {location.lon.toFixed(4)}
+                      </span>
+                      {locationAccuracy && <span className="text-green-600">±{Math.round(locationAccuracy)}m</span>}
+                    </span>
+                  ) : (
+                    "Location services"
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Mode Selector */}
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => switchMode("morning")}
+                className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
+                  currentMode === "morning"
+                    ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30"
+                    : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700"
+                }`}
+              >
+                <Sunrise className="w-4 h-4" />
+                <span className="hidden md:block">Morning</span>
+              </button>
+              <button
+                onClick={() => switchMode("default")}
+                className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
+                  currentMode === "default"
+                    ? `bg-${theme.colors.primary}-100 text-${theme.colors.primary}-700 dark:bg-${theme.colors.primary}-900/30`
+                    : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700"
+                }`}
+              >
+                <Sun className="w-4 h-4" />
+                <span className="hidden md:block">Day</span>
+              </button>
+              <button
+                onClick={() => switchMode("night")}
+                className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
+                  currentMode === "night"
+                    ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30"
+                    : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700"
+                }`}
+              >
+                <Sunset className="w-4 h-4" />
+                <span className="hidden md:block">Night</span>
+              </button>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex items-center space-x-3">
+              {/* Notifications - Now with dropdown */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowNotifications(!showNotifications)}
+                  className={`p-2 rounded-lg transition-colors ${
+                    notifications.length > 0
+                      ? "bg-red-100 text-red-600 dark:bg-red-900/30"
+                      : "bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-400"
+                  }`}
+                >
+                  {notifications.length > 0 ? <BellRing className="w-5 h-5" /> : <Bell className="w-5 h-5" />}
+                </button>
+                {notifications.length > 0 && (
+                  <div className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
+                    {notifications.length}
+                  </div>
+                )}
+                <NotificationsDropdown />
+              </div>
+
+              {/* Notification Settings */}
+              <button
+                onClick={() => setShowNotificationSettings(true)}
+                className={`p-2 rounded-lg transition-colors ${
+                  notificationPermission === "granted"
+                    ? "bg-green-100 text-green-600 dark:bg-green-900/30"
+                    : "bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-400"
+                }`}
+              >
+                <Settings className="w-5 h-5" />
+              </button>
+
+              {/* Camera Permission Status */}
+              <div className="relative">
+                <button
+                  onClick={requestCameraPermission}
+                  className={`p-2 rounded-lg transition-colors ${
+                    cameraPermissions === "granted"
+                      ? "bg-green-100 text-green-600 dark:bg-green-900/30"
+                      : cameraPermissions === "denied"
+                        ? "bg-red-100 text-red-600 dark:bg-red-900/30"
+                        : "bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-400"
+                  }`}
+                >
+                  <Camera className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Location Status */}
+              <div className="relative">
+                <button
+                  onClick={getCurrentLocation}
+                  className={`p-2 rounded-lg transition-colors ${
+                    locationPermission === "granted"
+                      ? "bg-green-100 text-green-600 dark:bg-green-900/30"
+                      : locationError
+                        ? "bg-red-100 text-red-600 dark:bg-red-900/30"
+                        : "bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-400"
+                  }`}
+                >
+                  <MapPin className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Feedback */}
+              <button
+                onClick={() => setShowFeedback(true)}
+                className="p-2 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+              >
+                <MessageSquare className="w-5 h-5 text-slate-600 dark:text-slate-400" />
+              </button>
+
+              {/* Chatbot Toggle - New Catchy Design */}
+              <button
+                onClick={() => setShowChatbotSidebar(!showChatbotSidebar)}
+                className={`relative p-2 rounded-lg transition-all duration-300 ${
+                  showChatbotSidebar
+                    ? "bg-gradient-to-br from-blue-500 to-purple-600 text-white shadow-lg"
+                    : "bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-400 hover:shadow-md"
+                }`}
+              >
+                <Bot className={`w-5 h-5 ${showChatbotSidebar ? "animate-bounce" : ""}`} />
+                {!showChatbotSidebar && (
+                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+                )}
+              </button>
+
+              {/* Dark Mode Toggle */}
+              <button
+                onClick={() => setDarkMode(!darkMode)}
+                className="p-2 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+              >
+                {darkMode ? (
+                  <Sun className="w-5 h-5 text-slate-600 dark:text-slate-400" />
+                ) : (
+                  <Moon className="w-5 h-5 text-slate-600 dark:text-slate-400" />
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Enhanced Status Bar */}
+        <div className="mb-8">
+          <div
+            className={`${theme.colors.card} rounded-2xl p-6 shadow-lg border border-slate-200 dark:border-slate-700`}
+          >
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6">
+              <div className="text-center">
+                <div className="flex items-center justify-center mb-2">
+                  <Zap className={`w-5 h-5 text-${theme.colors.primary}-600 mr-2`} />
+                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                </div>
+                <div className={`text-lg font-bold ${theme.colors.text}`}>
+                  {realTimeData.energyUsage.toFixed(1)} kWh
+                </div>
+                <div className="text-xs text-slate-500">Energy Usage</div>
+              </div>
+              <div className="text-center">
+                <div className="flex items-center justify-center mb-2">
+                  <Thermometer className="w-5 h-5 text-blue-600 mr-2" />
+                </div>
+                <div className={`text-lg font-bold ${theme.colors.text}`}>{realTimeData.temperature.toFixed(1)}°C</div>
+                <div className="text-xs text-slate-500">Temperature</div>
+              </div>
+              <div className="text-center">
+                <div className="flex items-center justify-center mb-2">
+                  <Shield className="w-5 h-5 text-green-600 mr-2" />
+                </div>
+                <div className={`text-lg font-bold ${theme.colors.text}`}>{realTimeData.securityStatus}</div>
+                <div className="text-xs text-slate-500">Security</div>
+              </div>
+              <div className="text-center">
+                <div className="flex items-center justify-center mb-2">
+                  <Camera className="w-5 h-5 text-purple-600 mr-2" />
+                </div>
+                <div className={`text-lg font-bold ${theme.colors.text}`}>
+                  {activeCameras.size}/{cameraConfig.length}
+                </div>
+                <div className="text-xs text-slate-500">Cameras Active</div>
+              </div>
+              <div className="text-center">
+                <div className="flex items-center justify-center mb-2">
+                  <Bell className={`w-5 h-5 text-${notificationPermission === "granted" ? "green" : "red"}-600 mr-2`} />
+                </div>
+                <div className={`text-lg font-bold ${theme.colors.text}`}>
+                  {notificationPermission === "granted" ? "Enabled" : "Disabled"}
+                </div>
+                <div className="text-xs text-slate-500">Notifications</div>
+              </div>
+              <div className="text-center">
+                <div className="flex items-center justify-center mb-2">
+                  <Navigation
+                    className={`w-5 h-5 text-${locationPermission === "granted" ? "green" : "red"}-600 mr-2`}
+                  />
+                </div>
+                <div className={`text-lg font-bold ${theme.colors.text}`}>
+                  {locationPermission === "granted" ? "Precise" : "Disabled"}
+                </div>
+                <div className="text-xs text-slate-500">Location</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Main Dashboard Grid - Now includes new widgets */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <WeatherWidget />
+          <CameraWidget />
+          <MoodTrackerWidget />
+          <TodoListWidget />
+          <QuotationsWidget />
+
+          {/* Enhanced System Status Widget */}
+          <div
+            className={`${theme.colors.card} rounded-2xl p-6 shadow-lg border border-slate-200 dark:border-slate-700`}
+          >
+            <h3 className={`font-semibold ${theme.colors.text} mb-4`}>System Status</h3>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-slate-600 dark:text-slate-400">Location Services</span>
+                <div className="flex items-center space-x-2">
+                  <div
+                    className={`w-3 h-3 rounded-full ${locationPermission === "granted" ? "bg-green-500" : "bg-red-500"}`}
+                  ></div>
+                  <span className="text-xs text-slate-500">{locationPermission}</span>
+                </div>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-slate-600 dark:text-slate-400">Camera & Microphone</span>
+                <div className="flex items-center space-x-2">
+                  <div
+                    className={`w-3 h-3 rounded-full ${cameraPermissions === "granted" ? "bg-green-500" : "bg-red-500"}`}
+                  ></div>
+                  <span className="text-xs text-slate-500">{cameraPermissions}</span>
+                </div>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-slate-600 dark:text-slate-400">Browser Notifications</span>
+                <div className="flex items-center space-x-2">
+                  <div
+                    className={`w-3 h-3 rounded-full ${notificationPermission === "granted" ? "bg-green-500" : "bg-red-500"}`}
+                  ></div>
+                  <span className="text-xs text-slate-500">{notificationPermission}</span>
+                </div>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-slate-600 dark:text-slate-400">Video Quality</span>
+                <div className="flex items-center space-x-2">
+                  <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                  <span className="text-xs text-slate-500">{videoQuality.toUpperCase()}</span>
+                </div>
+              </div>
+            </div>
+            <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700 space-y-2">
+              <button
+                onClick={sendTestNotification}
+                disabled={notificationPermission !== "granted"}
+                className={`w-full px-3 py-2 rounded-lg text-sm ${
+                  notificationPermission === "granted"
+                    ? `bg-${theme.colors.primary}-500 text-white hover:bg-${theme.colors.primary}-600`
+                    : "bg-slate-300 text-slate-500 cursor-not-allowed"
+                }`}
+              >
+                Test Notification
+              </button>
+              <div className="text-xs text-slate-500 text-center">All systems operational</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Modals */}
+      {showLocationModal && <LocationPermissionModal />}
+      {showNotificationSettings && <NotificationSettingsModal />}
+      {showCameraModal && <CameraModal />}
+      {showFeedback && <FeedbackModal />}
+      {fullscreenCamera && <FullscreenCameraModal />}
+      <ChatbotSidebar />
+      {/* Overlay when chatbot is open */}
+      {showChatbotSidebar && (
+        <div className="fixed inset-0 bg-black bg-opacity-20 z-30" onClick={() => setShowChatbotSidebar(false)} />
+      )}
+    </div>
+  )
+}
